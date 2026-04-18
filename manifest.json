@@ -1,0 +1,20 @@
+{
+  "id": "pomodoro",
+  "name": "Pomodoro",
+  "version": "0.1.0",
+  "minOysterVersion": "0.3.2",
+  "description": "Classic 25/5/15 focus timer. Sample third-party plugin for Oyster.",
+  "author": "Matthew Slight",
+  "authorUrl": "https://github.com/mattslight",
+  "repo": "mattslight/oyster-sample-plugin",
+  "type": "app",
+  "runtime": "static",
+  "entrypoint": "src/index.html",
+  "ports": [],
+  "storage": "none",
+  "capabilities": [],
+  "status": "ready",
+  "builtin": false,
+  "created_at": "2026-04-18T00:00:00.000Z",
+  "updated_at": "2026-04-18T00:00:00.000Z"
+}

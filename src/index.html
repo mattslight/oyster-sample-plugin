@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-0: #0b0a14;
+      --bg-1: #13111d;
+      --panel: rgba(22, 20, 36, 0.86);
+      --panel-strong: rgba(28, 25, 44, 0.94);
+      --border: rgba(124, 107, 255, 0.22);
+      --border-strong: rgba(124, 107, 255, 0.4);
+      --text-main: #e8e4f5;
+      --text-muted: rgba(232, 228, 245, 0.56);
+      --focus: #7c6bff;
+      --focus-soft: rgba(124, 107, 255, 0.16);
+      --break: #4ade80;
+      --break-soft: rgba(74, 222, 128, 0.16);
+      --danger: #f87171;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 30% 0%, rgba(124, 107, 255, 0.18), transparent 40%),
+        radial-gradient(circle at 70% 100%, rgba(74, 222, 128, 0.08), transparent 40%),
+        linear-gradient(180deg, var(--bg-1), var(--bg-0));
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+      padding: 1.5rem;
+      user-select: none;
+    }
+
+    body.break {
+      --focus: var(--break);
+      --focus-soft: var(--break-soft);
+    }
+
+    .stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      width: min(100%, 420px);
+    }
+
+    .mode-row {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.3rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+    }
+
+    .mode {
+      padding: 0.55rem 1.1rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: transparent;
+      border: none;
+      font-family: inherit;
+      font-weight: 600;
+    }
+
+    .mode.active {
+      background: var(--focus-soft);
+      color: var(--focus);
+      box-shadow: inset 0 0 0 1px var(--border-strong);
+    }
+
+    .mode:not(.active):hover {
+      color: var(--text-main);
+    }
+
+    .ring-wrap {
+      position: relative;
+      width: min(320px, 80vw);
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ring {
+      position: absolute;
+      inset: 0;
+      transform: rotate(-90deg);
+    }
+
+    .ring circle {
+      fill: none;
+      stroke-width: 6;
+    }
+
+    .ring .track {
+      stroke: var(--border);
+    }
+
+    .ring .progress {
+      stroke: var(--focus);
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.3s linear, stroke 0.3s ease;
+      filter: drop-shadow(0 0 12px var(--focus-soft));
+    }
+
+    .inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+      cursor: pointer;
+      padding: 2rem;
+      border-radius: 50%;
+      transition: transform 0.15s ease;
+    }
+
+    .inner:hover {
+      transform: scale(1.02);
+    }
+
+    .inner:active {
+      transform: scale(0.98);
+    }
+
+    .time {
+      font-size: clamp(3.2rem, 12vw, 4.8rem);
+      font-weight: 300;
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+      line-height: 1;
+    }
+
+    .status {
+      font-size: 0.72rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .status.running {
+      color: var(--focus);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.3rem;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      color: var(--text-main);
+      border-color: var(--border-strong);
+      background: var(--panel-strong);
+    }
+
+    .btn.primary {
+      background: var(--focus);
+      color: #0b0a14;
+      border-color: var(--focus);
+    }
+
+    .btn.primary:hover {
+      filter: brightness(1.1);
+      color: #0b0a14;
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .dots {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.2s ease;
+    }
+
+    .dot.done {
+      background: var(--focus);
+    }
+
+    .settings {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .settings label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+
+    .settings input {
+      width: 44px;
+      padding: 0.3rem 0.5rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.82rem;
+      text-align: center;
+    }
+
+    .settings input:focus {
+      outline: none;
+      border-color: var(--focus);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="mode-row" role="tablist">
+      <button class="mode active" data-mode="focus">Focus</button>
+      <button class="mode" data-mode="short">Short break</button>
+      <button class="mode" data-mode="long">Long break</button>
+    </div>
+
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 100 100">
+        <circle class="track" cx="50" cy="50" r="46"></circle>
+        <circle class="progress" cx="50" cy="50" r="46"
+                stroke-dasharray="289.03" stroke-dashoffset="0"></circle>
+      </svg>
+      <div class="inner" id="inner" title="Click to start/pause">
+        <div class="time" id="time">25:00</div>
+        <div class="status" id="status">Ready</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn primary" id="startBtn">Start</button>
+      <button class="btn" id="skipBtn">Skip</button>
+      <button class="btn" id="resetBtn">Reset</button>
+    </div>
+
+    <div class="meta">
+      <span>Round <span id="roundNum">1</span> / 4</span>
+      <div class="dots" id="dots">
+        <div class="dot"></div><div class="dot"></div>
+        <div class="dot"></div><div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="settings">
+      <label>Focus <input type="number" id="setFocus" min="1" max="90" value="25"> min</label>
+      <label>Short <input type="number" id="setShort" min="1" max="30" value="5"> min</label>
+      <label>Long <input type="number" id="setLong" min="1" max="60" value="15"> min</label>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "oyster.pomodoro.v1";
+    const RING_CIRCUMFERENCE = 2 * Math.PI * 46;
+
+    const state = {
+      mode: "focus",
+      running: false,
+      remaining: 0,
+      total: 0,
+      round: 1,
+      completed: 0,
+      tickId: null,
+      durations: { focus: 25, short: 5, long: 15 },
+    };
+
+    const el = {
+      time: document.getElementById("time"),
+      status: document.getElementById("status"),
+      startBtn: document.getElementById("startBtn"),
+      skipBtn: document.getElementById("skipBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      inner: document.getElementById("inner"),
+      roundNum: document.getElementById("roundNum"),
+      dots: document.getElementById("dots").children,
+      progress: document.querySelector(".ring .progress"),
+      modes: document.querySelectorAll(".mode"),
+      setFocus: document.getElementById("setFocus"),
+      setShort: document.getElementById("setShort"),
+      setLong: document.getElementById("setLong"),
+    };
+
+    el.progress.style.strokeDasharray = RING_CIRCUMFERENCE;
+
+    function loadPrefs() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data.durations) state.durations = { ...state.durations, ...data.durations };
+        el.setFocus.value = state.durations.focus;
+        el.setShort.value = state.durations.short;
+        el.setLong.value = state.durations.long;
+      } catch {}
+    }
+
+    function savePrefs() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ durations: state.durations }));
+      } catch {}
+    }
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function render() {
+      el.time.textContent = formatTime(state.remaining);
+      const fraction = state.total > 0 ? state.remaining / state.total : 0;
+      el.progress.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - fraction);
+
+      el.status.textContent = state.running
+        ? (state.mode === "focus" ? "Focusing" : "On break")
+        : (state.remaining === state.total ? "Ready" : "Paused");
+      el.status.classList.toggle("running", state.running);
+
+      el.startBtn.textContent = state.running ? "Pause" : "Start";
+      el.roundNum.textContent = state.round;
+
+      for (let i = 0; i < 4; i++) {
+        el.dots[i].classList.toggle("done", i < state.completed % 4);
+      }
+
+      el.modes.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.mode === state.mode);
+      });
+
+      document.body.classList.toggle("break", state.mode !== "focus");
+      document.title = state.running
+        ? `${formatTime(state.remaining)} · ${state.mode === "focus" ? "Focus" : "Break"}`
+        : "Pomodoro";
+    }
+
+    function durationFor(mode) {
+      return state.durations[mode] * 60;
+    }
+
+    function setMode(mode, opts = {}) {
+      state.mode = mode;
+      state.total = durationFor(mode);
+      state.remaining = state.total;
+      state.running = false;
+      if (state.tickId) {
+        clearInterval(state.tickId);
+        state.tickId = null;
+      }
+      if (opts.autoStart) start();
+      render();
+    }
+
+    function start() {
+      if (state.running) return;
+      if (state.remaining === 0) state.remaining = state.total;
+      state.running = true;
+      state.tickId = setInterval(tick, 1000);
+      render();
+    }
+
+    function pause() {
+      state.running = false;
+      if (state.tickId) {
+        clearInterval(state.tickId);
+        state.tickId = null;
+      }
+      render();
+    }
+
+    function toggle() {
+      state.running ? pause() : start();
+    }
+
+    function tick() {
+      if (state.remaining <= 0) {
+        finish();
+        return;
+      }
+      state.remaining -= 1;
+      render();
+    }
+
+    function finish() {
+      pause();
+      beep();
+      if (state.mode === "focus") {
+        state.completed += 1;
+        state.round = state.completed + 1;
+        const nextMode = state.completed % 4 === 0 ? "long" : "short";
+        setMode(nextMode, { autoStart: true });
+      } else {
+        setMode("focus", { autoStart: true });
+      }
+    }
+
+    function skip() {
+      finish();
+    }
+
+    function reset() {
+      state.completed = 0;
+      state.round = 1;
+      setMode("focus");
+    }
+
+    function beep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = state.mode === "focus" ? 880 : 660;
+        osc.type = "sine";
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+      } catch {}
+    }
+
+    el.startBtn.addEventListener("click", toggle);
+    el.skipBtn.addEventListener("click", skip);
+    el.resetBtn.addEventListener("click", reset);
+    el.inner.addEventListener("click", toggle);
+
+    el.modes.forEach((btn) => {
+      btn.addEventListener("click", () => setMode(btn.dataset.mode));
+    });
+
+    function bindSetting(input, key) {
+      input.addEventListener("change", () => {
+        const value = Math.max(1, Math.min(Number(input.max), Number(input.value) || 1));
+        input.value = value;
+        state.durations[key] = value;
+        savePrefs();
+        if (!state.running && state.mode === key) setMode(key);
+      });
+    }
+
+    bindSetting(el.setFocus, "focus");
+    bindSetting(el.setShort, "short");
+    bindSetting(el.setLong, "long");
+
+    document.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "INPUT") return;
+      if (e.code === "Space") { e.preventDefault(); toggle(); }
+      else if (e.key === "r" || e.key === "R") reset();
+      else if (e.key === "s" || e.key === "S") skip();
+    });
+
+    loadPrefs();
+    setMode("focus");
+  </script>
+</body>
+</html>
